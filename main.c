@@ -11,20 +11,33 @@
 #define MAX_ARG_COUNT 100
 
 /*
- * READ
- * EVAL
- * PRINT
- * LOOP
- * (REPL)
-*/
+ * Shell implementation for Operative System I class (PUCMM)
+ * Based on simple read-eval-print loop (REPL) algorithm
+ * https://en.wikipedia.org/wiki/Read%E2%80%93eval%E2%80%93print_loop
+ * =============================
+ * Shell Definition
+ * =============================
+ * A shell is special user program which provides an interface to the user 
+ * to use operating system services. The Shell accepts human readable commands 
+ * and converts them into something which the kernel, another special program, 
+ * can understand. It is a command language interpreter that executes commands 
+ * read from input devices such as keyboards or files. The shell gets started 
+ * when the user logs in or starts the terminal or a Terminal Emulator.
+ * =============================
+ * Limitations
+ * =============================
+ * This program is provided as is, and it is not intended to replace an official
+ * shell implementation. Piping is supported up to 2 commands, it's sole purpose
+ * is to demonstrate how to handle the functionality in a simple scenario.
+ */
 
-int cmdHandler(char** cmd) {    
+int cmdHandler(char ** cmd) {    
     // Declarations
     const int amountOfCommands = 2;
     char * cmds[2] = { "exit", "hello" };
     int commandId = 0;
     int idx = 0;
-    char* username;
+    char * username;
 
     // Evaluate if input is a known command
     for(; idx < amountOfCommands; idx++) {
@@ -50,12 +63,12 @@ int cmdHandler(char** cmd) {
     return 0;
 }
 
-void execute(char** input) {
+void execute(char ** input) {
     // fork child process
     pid_t pid = fork();
 
     if(pid == -1) {
-        printf("Forking child failed...");
+        printf("shell: forking child failed.\n");
         return;
     } else if (pid == 0) {
         if(execvp(input[0], input) < 0) {
@@ -68,7 +81,15 @@ void execute(char** input) {
     }
 }
 
-// void executePiped(char** parsedArgs, char** parsedArgs)
+void executePiped(char ** parsedArgs, char ** parsedArgsPiped) {
+    // Execute first
+    printf("> %s\n", parsedArgs[0]);
+    execute(parsedArgs);
+
+    // Execute second
+    printf("> %s\n", parsedArgsPiped[0]);
+    execute(parsedArgsPiped);    
+}
 
 int capture(char * str) {
     char * buffer;
@@ -88,7 +109,7 @@ int capture(char * str) {
     }
 }
 
-int isPiped(char* str, char** separated) {
+int isPiped(char * str, char ** separated) {
     int idx = 0;    
     for(; idx < 2; idx++) {
         separated[idx] = strsep(&str, "|");
@@ -102,7 +123,7 @@ int isPiped(char* str, char** separated) {
     return 1;
 }
 
-void spaceParser(char* str, char** parsed) {    
+void spaceParser(char * str, char ** parsed) {    
     int idx = 0;
     for(; idx < MAX_ARG_COUNT; idx++) {
         parsed[idx] = strsep(&str, " ");
@@ -112,8 +133,8 @@ void spaceParser(char* str, char** parsed) {
     }    
 }
 
-int process(char * str, char** parsedArgs, char** parsedArgsPiped) {
-    char* striped[2];
+int process(char * str, char ** parsedArgs, char ** parsedArgsPiped) {
+    char * striped[2];
     int piped = 0;
 
     piped = isPiped(str, striped);
@@ -138,24 +159,28 @@ int main(int argc, char * argv[])
     char * parsedArgs[MAX_ARG_COUNT];
     char * parsedArgsPiped[MAX_ARG_COUNT];
     int executionFlag = -1;
+
     while(1) {        
         // take input
         if(!capture(input)) 
             continue; // Reset loop and attempt to capture input again
 
-        // process (eval)
-        // execute
-        // print
-        executionFlag = process(input, parsedArgs, parsedArgsPiped);
+        /*
+         * process (eval) and execute/print
+         * executionFlag: 0, 1, 2
+         * 0 -> command is in our list and we have its implementation
+         * 1 -> command will be sent to system
+         * 2 -> piped commands, these will be sent to system
+         */
+        executionFlag = process(input, parsedArgs, parsedArgsPiped);            
 
-        // TODO: RR: execution flag must be evaluated in order to support piping
         if(executionFlag == 1) {
             execute(parsedArgs);
         }
-
-        // if(executionFlag == 2) {
-        //     executePiped(parsedArgs, parsedArgsPiped);
-        // }
+        
+        if(executionFlag == 2) {
+            executePiped(parsedArgs, parsedArgsPiped);
+        }
 
         // continue loop
     }
